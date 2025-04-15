@@ -74,6 +74,7 @@ class Page3Activity : AppCompatActivity() {
         buttonClearDatabase = findViewById(R.id.buttonClearDatabase)
         buttonClearDatabase.setOnClickListener {
             clearDatabase()
+            recreate()
         }
     }
 
