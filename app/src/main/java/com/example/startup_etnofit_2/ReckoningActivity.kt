@@ -67,7 +67,7 @@ class ReckoningActivity : AppCompatActivity() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, regions)
         spinnerRegion.adapter = adapter
 
-        /*// Получаем средний чек из SharedPreferences
+        /*// Получаем средний  чек из SharedPreferences
         val sharedPref = this.getPreferences(Context.MODE_PRIVATE) ?: return
         averageCheck = sharedPref.getFloat("average_check", 0.0f).toDouble()*/
 
