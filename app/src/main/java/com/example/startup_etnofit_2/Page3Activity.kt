@@ -1,3 +1,5 @@
+
+// Page3Activity.kt
 package com.example.startup_etnofit_2
 
 import android.app.DatePickerDialog
@@ -71,6 +73,12 @@ class Page3Activity : AppCompatActivity() {
             showResult()
         }
 
+        // Обработчик кнопки "Выбрать период"
+        val buttonSelectYear: Button = findViewById(R.id.buttonSelectYear)
+        buttonSelectYear.setOnClickListener {
+            onYearClicked()
+        }
+
         buttonClearDatabase = findViewById(R.id.buttonClearDatabase)
         buttonClearDatabase.setOnClickListener {
             clearDatabase()
@@ -136,7 +144,7 @@ class Page3Activity : AppCompatActivity() {
         }
     }
 
-    fun onYearClicked(view: View) {
+    fun onYearClicked(view: View? = null) {
         val calendar = Calendar.getInstance()
         val year = calendar.get(Calendar.YEAR)
         val month = calendar.get(Calendar.MONTH)

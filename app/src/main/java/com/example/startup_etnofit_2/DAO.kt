@@ -1,3 +1,4 @@
+// DAO.kt
 package com.example.startup_etnofit_2
 
 import androidx.room.Dao
@@ -30,4 +31,19 @@ interface ReckoningDataDao {
 
     @Update
     suspend fun update(reckoningData: ReckoningData)
+}
+
+@Dao
+interface PreviousReckoningDataDao {
+    @Insert
+    suspend fun insert(previousReckoningData: PreviousReckoningData)
+
+    @Query("SELECT * FROM previous_reckoning_data WHERE year = :year AND month = :month LIMIT 1")
+    suspend fun getPreviousReckoningDataByYearAndMonth(year: Int, month: Int): PreviousReckoningData?
+
+    @Update
+    suspend fun update(previousReckoningData: PreviousReckoningData)
+
+    @Query("SELECT * FROM previous_reckoning_data WHERE year = :year ORDER BY month DESC LIMIT 1")
+    suspend fun getLatestPreviousReckoningDataByYear(year: Int): PreviousReckoningData?
 }

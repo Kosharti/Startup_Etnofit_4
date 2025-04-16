@@ -15,10 +15,11 @@ import kotlinx.coroutines.withContext
 import android.content.Context
 import java.util.*
 import android.util.Log
+import android.view.View
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var inputYear: EditText
+    private lateinit var inputYear: NumberPicker // Замените EditText на NumberPicker
     private lateinit var spinnerMonth: Spinner
     private lateinit var inputRevenue: EditText
     private lateinit var inputChecks: EditText
@@ -27,6 +28,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
     private lateinit var checksDataDao: ChecksDataDao
     private lateinit var buttonClearDatabase: Button
+
+    private var selectedYear: Int? = null
+    private var selectedMonth: Int? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,10 +47,39 @@ class MainActivity : AppCompatActivity() {
         db = AppDatabase.getDatabase(this)
         checksDataDao = db.checksDataDao()
 
+        // Настройка NumberPicker
+        inputYear.minValue = 2010
+        inputYear.maxValue = 2025
+        inputYear.value = Calendar.getInstance().get(Calendar.YEAR) // Установка текущего года по умолчанию
+        inputYear.wrapSelectorWheel = false // Отключаем зацикливание
+
         // Настройка Spinner
         val months = arrayOf("Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, months)
         spinnerMonth.adapter = adapter
+
+        // Обработчик изменения года
+        inputYear.setOnValueChangedListener { _, _, newVal ->
+            selectedYear = newVal
+            enableMonthSelection()
+            loadDataIfExists()
+        }
+
+        // Обработчик выбора месяца
+        spinnerMonth.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                selectedMonth = position + 1
+                loadDataIfExists()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {
+                selectedMonth = null
+                clearInputFields()
+            }
+        }
+
+        // Изначально блокируем поля ввода
+        disableInputFields()
 
         buttonCalculate.setOnClickListener {
             calculateAndSave()
@@ -54,21 +87,53 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun disableInputFields() {
+        inputRevenue.isEnabled = false
+        inputChecks.isEnabled = false
+        buttonCalculate.isEnabled = false // Блокируем кнопку, пока не выбраны год и месяц
+    }
+
+    private fun enableInputFields() {
+        inputRevenue.isEnabled = true
+        inputChecks.isEnabled = true
+        buttonCalculate.isEnabled = true // Разблокируем кнопку, когда выбраны год и месяц
+    }
+
+    private fun enableMonthSelection() {
+        spinnerMonth.isEnabled = true
+    }
+
+    private fun loadDataIfExists() {
+        if (selectedYear != null && selectedMonth != null) {
+            lifecycleScope.launch {
+                val existingData = withContext(Dispatchers.IO) {
+                    checksDataDao.getChecksDataByYearAndMonth(selectedYear!!, selectedMonth!!)
+                }
+
+                if (existingData != null) {
+                    inputRevenue.setText(existingData.revenue.toString())
+                    inputChecks.setText(existingData.numberOfChecks.toString())
+                } else {
+                    clearInputFields()
+                }
+                enableInputFields() // Разблокируем поля ввода только после выбора года и месяца
+            }
+        }
+    }
+
+    private fun clearInputFields() {
+        inputRevenue.setText("")
+        inputChecks.setText("")
+    }
+
     private fun calculateAndSave() {
-        val yearString = inputYear.text.toString()
-
-        if (yearString.isEmpty()) {
-            Toast.makeText(this, "Пожалуйста, введите год", Toast.LENGTH_SHORT).show()
+        if (selectedYear == null || selectedMonth == null) {
+            Toast.makeText(this, "Пожалуйста, выберите год и месяц", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val year = yearString.toIntOrNull()
-        if (year == null) {
-            Toast.makeText(this, "Некорректный формат года", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val month = spinnerMonth.selectedItemPosition + 1 // Месяцы в Spinner 0-11, а в базе 1-12
+        val year = selectedYear!!
+        val month = selectedMonth!!
         val revenueString = inputRevenue.text.toString()
         val numberOfChecksString = inputChecks.text.toString()
 
@@ -125,17 +190,6 @@ class MainActivity : AppCompatActivity() {
 
             // Отображаем результаты
             showCalculationResult(averageCheck)
-
-            // Сохраняем averageCheck в SharedPreferences
-            /*val sharedPref = getPreferences(Context.MODE_PRIVATE) ?: return@launch
-            with (sharedPref.edit()) {
-                putFloat("average_check", averageCheck.toFloat())
-                commit()
-            }*/
-
-            // Логирование среднего чека после сохранения
-            /*val savedAverageCheck = sharedPref.getFloat("average_check", 0.0f).toDouble()
-            Log.d("MainActivity", "Средний чек (после сохранения): $savedAverageCheck")*/
         }
     }
 
@@ -163,7 +217,7 @@ class MainActivity : AppCompatActivity() {
             buttonCalculate.text = "Далее"
             buttonCalculate.setOnClickListener {
                 val intent = Intent(this, ReckoningActivity::class.java)
-                val year = inputYear.text.toString().toIntOrNull() ?: Calendar.getInstance().get(Calendar.YEAR)
+                val year = inputYear.value
                 val month = spinnerMonth.selectedItemPosition + 1
                 intent.putExtra("year", year)
                 intent.putExtra("month", month)

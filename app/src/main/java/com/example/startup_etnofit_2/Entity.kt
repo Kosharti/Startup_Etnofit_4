@@ -1,3 +1,5 @@
+// Entity.kt
+
 package com.example.startup_etnofit_2
 
 import androidx.room.Entity
@@ -19,14 +21,22 @@ data class ReckoningData(
     val year: Int,
     val month: Int,
     val region: String, // Название региона
-    val electricityPrev: Double,
     val electricityCurr: Double,
-    val gasPrev: Double,
     val gasCurr: Double,
-    val hotWaterPrev: Double,
     val hotWaterCurr: Double,
-    val coldWaterPrev: Double,
     val coldWaterCurr: Double,
     val S: Double,
     val M: Double
+)
+
+@Entity(tableName = "previous_reckoning_data")
+data class PreviousReckoningData(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val year: Int,
+    val month: Int,
+    val region: String, // Название региона
+    val electricityPrev: Double,
+    val gasPrev: Double,
+    val hotWaterPrev: Double,
+    val coldWaterPrev: Double
 )

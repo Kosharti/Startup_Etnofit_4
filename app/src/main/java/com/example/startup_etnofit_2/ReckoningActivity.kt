@@ -32,6 +32,7 @@ class ReckoningActivity : AppCompatActivity() {
     private lateinit var db: AppDatabase
     private lateinit var reckoningDataDao: ReckoningDataDao
     private lateinit var checksDataDao: ChecksDataDao // Добавляем Dao для ChecksData
+    private lateinit var previousReckoningDataDao: PreviousReckoningDataDao
 
     private var averageCheck: Double = 0.0
     private var year: Int = Calendar.getInstance().get(Calendar.YEAR)
@@ -60,56 +61,82 @@ class ReckoningActivity : AppCompatActivity() {
         // Инициализация базы данных
         db = AppDatabase.getDatabase(this)
         reckoningDataDao = db.reckoningDataDao()
-        checksDataDao = db.checksDataDao() // Инициализируем ChecksDataDao
+        checksDataDao = db.checksDataDao()
+        previousReckoningDataDao = db.previousReckoningDataDao()
 
         // Настройка Spinner для выбора региона
         val regions = arrayOf("Республика Марий Эл", "Республика Татарстан", "Республика Чувашия", "Москва") // Пример регионов
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, regions)
         spinnerRegion.adapter = adapter
 
-        /*// Получаем средний  чек из SharedPreferences
-        val sharedPref = this.getPreferences(Context.MODE_PRIVATE) ?: return
-        averageCheck = sharedPref.getFloat("average_check", 0.0f).toDouble()*/
+        // Загрузка данных из базы данных
+        loadDataIfExists()
 
         buttonCalculate.setOnClickListener {
             calculateAndSave()
         }
     }
 
+    private fun loadDataIfExists() {
+        lifecycleScope.launch {
+            val previousMonthYear = getPreviousMonthYear(year, month)
+            val previousData = withContext(Dispatchers.IO) {
+                previousReckoningDataDao.getLatestPreviousReckoningDataByYear(year)
+            }
+            val currentData = withContext(Dispatchers.IO){
+                reckoningDataDao.getReckoningDataByYearAndMonth(year, month)
+            }
+            if (previousData != null) {
+                inputElectricityPrev.setText(previousData.electricityPrev.toString())
+                inputGasPrev.setText(previousData.gasPrev.toString())
+                inputHotWaterPrev.setText(previousData.hotWaterPrev.toString())
+                inputColdWaterPrev.setText(previousData.coldWaterPrev.toString())
+            }
+            if (currentData != null){
+                inputElectricityCurr.setText(currentData.electricityCurr.toString())
+                inputGasCurr.setText(currentData.gasCurr.toString())
+                inputHotWaterCurr.setText(currentData.hotWaterCurr.toString())
+                inputColdWaterCurr.setText(currentData.coldWaterCurr.toString())
+                spinnerRegion.setSelection(getIndex(spinnerRegion, currentData.region))
+            }
+        }
+    }
+
     private fun calculateAndSave() {
         val region = spinnerRegion.selectedItem.toString()
-        val electricityPrevString = inputElectricityPrev.text.toString()
         val electricityCurrString = inputElectricityCurr.text.toString()
-        val gasPrevString = inputGasPrev.text.toString()
         val gasCurrString = inputGasCurr.text.toString()
-        val hotWaterPrevString = inputHotWaterPrev.text.toString()
         val hotWaterCurrString = inputHotWaterCurr.text.toString()
-        val coldWaterPrevString = inputColdWaterPrev.text.toString()
         val coldWaterCurrString = inputColdWaterCurr.text.toString()
 
-        if (electricityPrevString.isEmpty() || electricityCurrString.isEmpty() ||
-            gasPrevString.isEmpty() || gasCurrString.isEmpty() ||
-            hotWaterPrevString.isEmpty() || hotWaterCurrString.isEmpty() ||
-            coldWaterPrevString.isEmpty() || coldWaterCurrString.isEmpty()) {
+        val electricityPrevString = inputElectricityPrev.text.toString()
+        val gasPrevString = inputGasPrev.text.toString()
+        val hotWaterPrevString = inputHotWaterPrev.text.toString()
+        val coldWaterPrevString = inputColdWaterPrev.text.toString()
+
+        if (electricityCurrString.isEmpty() || gasCurrString.isEmpty() ||
+            hotWaterCurrString.isEmpty() || coldWaterCurrString.isEmpty()||
+            electricityPrevString.isEmpty() || gasPrevString.isEmpty() ||
+            hotWaterPrevString.isEmpty() || coldWaterPrevString.isEmpty()) {
             Toast.makeText(this, "Пожалуйста, заполните все поля", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val electricityPrev = electricityPrevString.toDoubleOrNull()
         val electricityCurr = electricityCurrString.toDoubleOrNull()
-        val gasPrev = gasPrevString.toDoubleOrNull()
         val gasCurr = gasCurrString.toDoubleOrNull()
-        val hotWaterPrev = hotWaterPrevString.toDoubleOrNull()
         val hotWaterCurr = hotWaterCurrString.toDoubleOrNull()
-        val coldWaterPrev = coldWaterPrevString.toDoubleOrNull()
         val coldWaterCurr = coldWaterCurrString.toDoubleOrNull()
 
-        if (electricityPrev == null || electricityCurr == null || gasPrev == null || gasCurr == null ||
-            hotWaterPrev == null || hotWaterCurr == null || coldWaterPrev == null || coldWaterCurr == null) {
+        val electricityPrev = electricityPrevString.toDoubleOrNull()
+        val gasPrev = gasPrevString.toDoubleOrNull()
+        val hotWaterPrev = hotWaterPrevString.toDoubleOrNull()
+        val coldWaterPrev = coldWaterPrevString.toDoubleOrNull()
+
+        if (electricityCurr == null || gasCurr == null || hotWaterCurr == null || coldWaterCurr == null||
+            electricityPrev == null || gasPrev == null || hotWaterPrev == null || coldWaterPrev == null) {
             Toast.makeText(this, "Некорректный формат чисел", Toast.LENGTH_SHORT).show()
             return
         }
-
         val regionCoefficient = 0.366 // Для всех регионов пока одинаковый
 
         lifecycleScope.launch {
@@ -142,13 +169,9 @@ class ReckoningActivity : AppCompatActivity() {
                     // Если запись существует, обновляем её
                     val updatedData = existingData.copy(
                         region = region,
-                        electricityPrev = electricityPrev,
                         electricityCurr = electricityCurr,
-                        gasPrev = gasPrev,
                         gasCurr = gasCurr,
-                        hotWaterPrev = hotWaterPrev,
                         hotWaterCurr = hotWaterCurr,
-                        coldWaterPrev = coldWaterPrev,
                         coldWaterCurr = coldWaterCurr,
                         S = S,
                         M = M
@@ -162,13 +185,9 @@ class ReckoningActivity : AppCompatActivity() {
                         year = year,
                         month = month,
                         region = region,
-                        electricityPrev = electricityPrev,
                         electricityCurr = electricityCurr,
-                        gasPrev = gasPrev,
                         gasCurr = gasCurr,
-                        hotWaterPrev = hotWaterPrev,
                         hotWaterCurr = hotWaterCurr,
-                        coldWaterPrev = coldWaterPrev,
                         coldWaterCurr = coldWaterCurr,
                         S = S,
                         M = M
@@ -176,6 +195,22 @@ class ReckoningActivity : AppCompatActivity() {
                     withContext(Dispatchers.IO) {
                         reckoningDataDao.insert(newData)
                     }
+                }
+                val previousMonthYear = getPreviousMonthYear(year, month)
+
+                // Сохраняем предыдущие показания для следующего месяца
+                val previousData = PreviousReckoningData(
+                    year = year,
+                    month = month,
+                    region = region,
+                    electricityPrev = electricityPrev,
+                    gasPrev = gasPrev,
+                    hotWaterPrev = hotWaterPrev,
+                    coldWaterPrev = coldWaterPrev
+                )
+
+                withContext(Dispatchers.IO) {
+                    previousReckoningDataDao.insert(previousData)
                 }
 
                 // Показываем результаты
@@ -186,6 +221,25 @@ class ReckoningActivity : AppCompatActivity() {
                 averageCheck = 1.0 // или какое-то значение по умолчанию, чтобы избежать деления на ноль
             }
         }
+    }
+
+    private fun getPreviousMonthYear(year: Int, month: Int): Pair<Int, Int> {
+        var previousMonth = month - 1
+        var previousYear = year
+        if (previousMonth == 0) {
+            previousMonth = 12
+            previousYear--
+        }
+        return Pair(previousYear, previousMonth)
+    }
+    private fun getIndex(spinner: Spinner, myString: String): Int {
+        for (i in 0 until spinner.count) {
+            if (spinner.getItemAtPosition(i).toString().equals(myString, ignoreCase = true)) {
+                return i
+            }
+        }
+
+        return 0
     }
 
     private fun showCalculationResults(E: Double, G: Double, S: Double, M: Double) {

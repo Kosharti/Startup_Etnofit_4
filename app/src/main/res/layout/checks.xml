@@ -21,12 +21,10 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <EditText
+        <NumberPicker
             android:id="@+id/inputYear"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Год"
-            android:inputType="number" />
+            android:layout_height="wrap_content"/>
 
         <Spinner
             android:id="@+id/spinnerMonth"
