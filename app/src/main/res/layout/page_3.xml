@@ -9,19 +9,39 @@
     android:padding="16dp"
     tools:context=".Page3Activity">
 
-    <TextView
-        android:id="@+id/yearTextView"
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:background="?android:attr/selectableItemBackground"
-        android:clickable="true"
-        android:focusable="true"
-        android:onClick="onYearClicked"
-        android:padding="8dp"
-        android:text="2025"
-        android:textSize="24sp"
-        android:textStyle="bold"/>
+        android:padding="8dp">
+
+        <TextView
+            android:id="@+id/yearTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:onClick="onYearClicked"
+            android:text="2025"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <ImageButton
+            android:id="@+id/menuButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/options"
+            android:clickable="true"
+            android:contentDescription="Настройка_БД"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
 
     <TableLayout
         android:id="@+id/tableLayout"
@@ -442,58 +462,6 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
-    <Button
-        android:id="@+id/buttonClearDatabase"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="8dp"
-        android:layout_weight="1"
-        android:backgroundTint="@color/button"
-        android:text="Очистить данные"
-        tools:layout_editor_absoluteX="130dp"
-        tools:layout_editor_absoluteY="561dp"
-        android:layout_gravity="center"/>
-
-        <Button
-            android:id="@+id/buttonSelectYear"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:layout_gravity="center_horizontal"
-            android:backgroundTint="@color/button"
-            android:padding="8dp"
-            android:text="Выбрать период"
-            android:onClick="onYearClicked" />
-
-    </LinearLayout>
-
-    <Space
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_weight="1"/>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/buttonContinue"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="1"
-            android:backgroundTint="@color/button"
-            android:padding="16dp"
-            android:text="Продолжить заполнение"
-            android:textSize="12sp"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.0"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintVertical_bias="0.683" />
-
         <Button
             android:id="@+id/buttonShowResult"
             android:layout_width="0dp"
@@ -503,11 +471,12 @@
             android:backgroundTint="@color/button"
             android:padding="16dp"
             android:text="Показать результат"
-            android:textSize="12sp"
+            android:textSize="18sp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintHorizontal_bias="0.0"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintVertical_bias="0.683" />
+            app:layout_constraintVertical_bias="0.683"
+            android:layout_marginBottom="24dp"/>
     </LinearLayout>
 </LinearLayout>

@@ -198,6 +198,7 @@
         android:padding="16dp"
         android:text="Рассчитать"
         android:textSize="18sp"
-        android:layout_alignParentBottom="true"/>  <!-- Кнопка внизу -->
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="24dp"/>
 
 </RelativeLayout>

@@ -1,12 +1,14 @@
-
-// Page3Activity.kt
 package com.example.startup_etnofit_2
 
 import android.app.DatePickerDialog
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.view.View
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -18,34 +20,27 @@ class Page3Activity : AppCompatActivity() {
 
     private lateinit var yearTextView: TextView
     private lateinit var tableLayout: TableLayout
-    private lateinit var buttonContinue: Button
     private lateinit var buttonShowResult: Button
     private var currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
     private lateinit var db: AppDatabase
     private lateinit var reckoningDataDao: ReckoningDataDao
-    private lateinit var buttonClearDatabase: Button
 
-    private val monthTextViews = mutableMapOf<Int, Pair<TextView, TextView>>() // Map of Month to (STextView, MTextView)
+    private val monthTextViews = mutableMapOf<Int, Pair<TextView, TextView>>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.page_3)
 
-        // Инициализация View
         yearTextView = findViewById(R.id.yearTextView)
         tableLayout = findViewById(R.id.tableLayout)
-        buttonContinue = findViewById(R.id.buttonContinue)
         buttonShowResult = findViewById(R.id.buttonShowResult)
 
-        // Инициализация базы данных
         db = AppDatabase.getDatabase(this)
         reckoningDataDao = db.reckoningDataDao()
 
-        // Получаем год из Intent
         currentYear = intent.getIntExtra("year", Calendar.getInstance().get(Calendar.YEAR))
         yearTextView.text = currentYear.toString()
 
-        // Заполняем Map Month to (STextView, MTextView)
         monthTextViews[1] = Pair(findViewById(R.id.januaryS), findViewById(R.id.januaryM))
         monthTextViews[2] = Pair(findViewById(R.id.februaryS), findViewById(R.id.februaryM))
         monthTextViews[3] = Pair(findViewById(R.id.marchS), findViewById(R.id.marchM))
@@ -59,39 +54,22 @@ class Page3Activity : AppCompatActivity() {
         monthTextViews[11] = Pair(findViewById(R.id.novemberS), findViewById(R.id.novemberM))
         monthTextViews[12] = Pair(findViewById(R.id.decemberS), findViewById(R.id.decemberM))
 
-        // Загрузка данных из базы данных
         loadDataForYear(currentYear)
 
-        // Обработчик кнопки "Продолжить заполнение"
-        buttonContinue.setOnClickListener {
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
+        val menuButton = findViewById<ImageButton>(R.id.menuButton)
+        menuButton.setOnClickListener {
+            showDateBaseSetup()
         }
-
-        // Обработчик кнопки "Показать результат"
         buttonShowResult.setOnClickListener {
             showResult()
-        }
-
-        // Обработчик кнопки "Выбрать период"
-        val buttonSelectYear: Button = findViewById(R.id.buttonSelectYear)
-        buttonSelectYear.setOnClickListener {
-            onYearClicked()
-        }
-
-        buttonClearDatabase = findViewById(R.id.buttonClearDatabase)
-        buttonClearDatabase.setOnClickListener {
-            clearDatabase()
-            recreate()
         }
     }
 
     private fun clearDatabase() {
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
-                // Нужно сначала получить экземпляр базы данных
                 val db = AppDatabase.getDatabase(applicationContext)
-                db.clearAllTables() // Вызываем clearAllTables() на экземпляре базы данных
+                db.clearAllTables()
             }
         }
         Toast.makeText(this, "База данных очищена", Toast.LENGTH_SHORT).show()
@@ -104,16 +82,34 @@ class Page3Activity : AppCompatActivity() {
                     val data = reckoningDataDao.getReckoningDataByYearAndMonth(year, month)
                     val textViews = monthTextViews[month]
                     if (data != null && textViews != null) {
-                        // Обновляем UI в главном потоке
                         withContext(Dispatchers.Main) {
                             textViews.first.text = String.format("%.2f", data.S)
                             textViews.second.text = String.format("%.2f", data.M)
+
+                            val greenColor = Color.parseColor("#2a8722")
+                            val blueColor = Color.parseColor("#292994")
+                            val redColor = Color.parseColor("#a82d2d")
+
+                            when {
+                                data.S > 0 -> textViews.first.setTextColor(greenColor)
+                                data.S == 0.0 -> textViews.first.setTextColor(blueColor)
+                                else -> textViews.first.setTextColor(redColor)
+                            }
+
+                            when {
+                                data.M > 0 -> textViews.second.setTextColor(greenColor)
+                                data.M == 0.0 -> textViews.second.setTextColor(blueColor)
+                                else -> textViews.second.setTextColor(redColor)
+                            }
                         }
                     } else if (textViews != null) {
-                        // Обновляем UI в главном потоке
                         withContext(Dispatchers.Main) {
                             textViews.first.text = "-"
                             textViews.second.text = "-"
+
+                            val defaultColor = Color.parseColor("#000000")
+                            textViews.first.setTextColor(defaultColor)
+                            textViews.second.setTextColor(defaultColor)
                         }
                     }
                 }
@@ -124,7 +120,6 @@ class Page3Activity : AppCompatActivity() {
 
     private fun showResult() {
         lifecycleScope.launch {
-            // Считаем количество месяцев с заполненными данными
             var filledMonthsCount = 0
             for (month in 1..12) {
                 val data = withContext(Dispatchers.IO) {
@@ -155,22 +150,67 @@ class Page3Activity : AppCompatActivity() {
             { _, yearSelected, _, _ ->
                 currentYear = yearSelected
                 yearTextView.text = yearSelected.toString()
-                loadDataForYear(currentYear) // Загружаем данные для выбранного года
+                loadDataForYear(currentYear)
             },
             year,
             month,
             day
         )
 
-        // Set minimum and maximum dates using Calendar
         val minDateCalendar = Calendar.getInstance()
-        minDateCalendar.set(2010, 0, 1) // January 1, 2010 (month is 0-indexed)
+        minDateCalendar.set(2010, 0, 1)
         dpd.datePicker.minDate = minDateCalendar.timeInMillis
 
         val maxDateCalendar = Calendar.getInstance()
-        maxDateCalendar.set(Calendar.getInstance().get(Calendar.YEAR), 11, 31) // December 31 of the current year
+        maxDateCalendar.set(Calendar.getInstance().get(Calendar.YEAR), 11, 31)
         dpd.datePicker.maxDate = maxDateCalendar.timeInMillis
 
         dpd.show()
+    }
+
+    private fun showDateBaseSetup() {
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_base, null)
+
+        val dialogBuilder = AlertDialog.Builder(this)
+            .setView(dialogView)
+
+        val dialog = dialogBuilder.create()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        val inputYear = dialogView.findViewById<NumberPicker>(R.id.inputYear2)
+
+        inputYear.minValue = 2010
+        inputYear.maxValue = 2025
+        inputYear.value = currentYear
+        inputYear.wrapSelectorWheel = false
+
+        val buttonContinue = dialogView.findViewById<Button>(R.id.buttonContinue)
+        buttonContinue.setOnClickListener {
+            val intent = Intent(this, MainActivity::class.java)
+            startActivity(intent)
+            dialog.dismiss()
+        }
+
+        val buttonSelectYear = dialogView.findViewById<Button>(R.id.buttonSelectYear)
+        buttonSelectYear.setOnClickListener {
+            val selectedYear = inputYear.value
+            currentYear = selectedYear
+            yearTextView.text = selectedYear.toString()
+            loadDataForYear(selectedYear)
+            dialog.dismiss()
+        }
+
+        val buttonClearDatabase = dialogView.findViewById<Button>(R.id.buttonClearDatabase)
+        buttonClearDatabase.setOnClickListener {
+            clearDatabase()
+            recreate()
+            dialog.dismiss()
+        }
+
+        val closeButton = dialogView.findViewById<Button>(R.id.ok2Button)
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
     }
 }

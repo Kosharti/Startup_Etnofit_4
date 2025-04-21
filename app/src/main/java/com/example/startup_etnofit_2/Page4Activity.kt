@@ -14,10 +14,9 @@ class Page4Activity : AppCompatActivity() {
         val backButton: Button = findViewById(R.id.backButton)
 
         backButton.setOnClickListener {
-            // Действие при нажатии на кнопку "Вернуться в начало"
-            val intent = Intent(this, MainActivity::class.java) // Замени MainActivity на название твоего главного Activity
+            val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
-            finish() // Закрываем текущую Activity, чтобы пользователь не мог вернуться назад кнопкой "Назад"
+            finish()
         }
     }
 }

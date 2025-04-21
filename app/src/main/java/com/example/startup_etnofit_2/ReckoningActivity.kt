@@ -1,9 +1,9 @@
-
-// ReckoningActivity.kt
 package com.example.startup_etnofit_2
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.*
@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.*
 import android.util.Log
+import androidx.core.content.ContextCompat
 
 class ReckoningActivity : AppCompatActivity() {
 
@@ -31,7 +32,7 @@ class ReckoningActivity : AppCompatActivity() {
 
     private lateinit var db: AppDatabase
     private lateinit var reckoningDataDao: ReckoningDataDao
-    private lateinit var checksDataDao: ChecksDataDao // Добавляем Dao для ChecksData
+    private lateinit var checksDataDao: ChecksDataDao
     private lateinit var previousReckoningDataDao: PreviousReckoningDataDao
 
     private var averageCheck: Double = 0.0
@@ -42,11 +43,9 @@ class ReckoningActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.reckoning)
 
-        // Получаем данные из Intent
         year = intent.getIntExtra("year", Calendar.getInstance().get(Calendar.YEAR))
         month = intent.getIntExtra("month", 1)
 
-        // Инициализация View
         spinnerRegion = findViewById(R.id.spinnerRegion)
         inputElectricityPrev = findViewById(R.id.inputElectricityPrev)
         inputElectricityCurr = findViewById(R.id.inputElectricityCurr)
@@ -58,18 +57,15 @@ class ReckoningActivity : AppCompatActivity() {
         inputColdWaterCurr = findViewById(R.id.inputColdWaterCurr)
         buttonCalculate = findViewById(R.id.buttonCalculate)
 
-        // Инициализация базы данных
         db = AppDatabase.getDatabase(this)
         reckoningDataDao = db.reckoningDataDao()
         checksDataDao = db.checksDataDao()
         previousReckoningDataDao = db.previousReckoningDataDao()
 
-        // Настройка Spinner для выбора региона
-        val regions = arrayOf("Республика Марий Эл", "Республика Татарстан", "Республика Чувашия", "Москва") // Пример регионов
+        val regions = arrayOf("Республика Марий Эл", "Республика Татарстан", "Республика Чувашия", "Москва")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, regions)
         spinnerRegion.adapter = adapter
 
-        // Загрузка данных из базы данных
         loadDataIfExists()
 
         buttonCalculate.setOnClickListener {
@@ -80,25 +76,53 @@ class ReckoningActivity : AppCompatActivity() {
     private fun loadDataIfExists() {
         lifecycleScope.launch {
             val previousMonthYear = getPreviousMonthYear(year, month)
-            val previousData = withContext(Dispatchers.IO) {
-                previousReckoningDataDao.getLatestPreviousReckoningDataByYear(year)
+            val nextMonthYear = getNextMonthYear(year, month)
+
+            val previousMonthData = withContext(Dispatchers.IO) {
+                reckoningDataDao.getReckoningDataByYearAndMonth(previousMonthYear.first, previousMonthYear.second)
             }
-            val currentData = withContext(Dispatchers.IO){
+
+            val currentMonthData = withContext(Dispatchers.IO) {
                 reckoningDataDao.getReckoningDataByYearAndMonth(year, month)
             }
-            if (previousData != null) {
-                inputElectricityPrev.setText(previousData.electricityPrev.toString())
-                inputGasPrev.setText(previousData.gasPrev.toString())
-                inputHotWaterPrev.setText(previousData.hotWaterPrev.toString())
-                inputColdWaterPrev.setText(previousData.coldWaterPrev.toString())
+
+            val nextMonthData = withContext(Dispatchers.IO) {
+                previousReckoningDataDao.getPreviousReckoningDataByYearAndMonth(nextMonthYear.first, nextMonthYear.second)
             }
-            if (currentData != null){
-                inputElectricityCurr.setText(currentData.electricityCurr.toString())
-                inputGasCurr.setText(currentData.gasCurr.toString())
-                inputHotWaterCurr.setText(currentData.hotWaterCurr.toString())
-                inputColdWaterCurr.setText(currentData.coldWaterCurr.toString())
-                spinnerRegion.setSelection(getIndex(spinnerRegion, currentData.region))
+
+            if (previousMonthData != null) {
+                inputElectricityPrev.setText(previousMonthData.electricityCurr.toString())
+                inputGasPrev.setText(previousMonthData.gasCurr.toString())
+                inputHotWaterPrev.setText(previousMonthData.hotWaterCurr.toString())
+                inputColdWaterPrev.setText(previousMonthData.coldWaterCurr.toString())
+                setInputFieldBackground(inputElectricityPrev, true)
+                setInputFieldBackground(inputGasPrev, true)
+                setInputFieldBackground(inputHotWaterPrev, true)
+                setInputFieldBackground(inputColdWaterPrev, true)
             }
+
+            if (nextMonthData != null) {
+                inputElectricityCurr.setText(nextMonthData.electricityPrev.toString())
+                inputGasCurr.setText(nextMonthData.gasPrev.toString())
+                inputHotWaterCurr.setText(nextMonthData.hotWaterPrev.toString())
+                inputColdWaterCurr.setText(nextMonthData.coldWaterPrev.toString())
+
+                setInputFieldBackground(inputElectricityCurr, true)
+                setInputFieldBackground(inputGasCurr, true)
+                setInputFieldBackground(inputHotWaterCurr, true)
+                setInputFieldBackground(inputColdWaterCurr, true)
+            }
+            if (currentMonthData != null) {
+                spinnerRegion.setSelection(getIndex(spinnerRegion, currentMonthData.region))
+            }
+
+        }
+    }
+    private fun setInputFieldBackground(editText: EditText, autofilled: Boolean) {
+        if (autofilled) {
+            editText.background = ContextCompat.getDrawable(this, R.drawable.edittext_bg_autofilled)
+        } else {
+            editText.background = ContextCompat.getDrawable(this, R.drawable.edittext_bg)
         }
     }
 
@@ -137,10 +161,9 @@ class ReckoningActivity : AppCompatActivity() {
             Toast.makeText(this, "Некорректный формат чисел", Toast.LENGTH_SHORT).show()
             return
         }
-        val regionCoefficient = 0.366 // Для всех регионов пока одинаковый
+        val regionCoefficient = 0.366
 
         lifecycleScope.launch {
-            // Получаем averageCheck из базы данных
             val checksData = withContext(Dispatchers.IO) {
                 checksDataDao.getChecksDataByYearAndMonth(year, month)
             }
@@ -149,7 +172,6 @@ class ReckoningActivity : AppCompatActivity() {
                 averageCheck = checksData.averageCheck
                 Log.d("ReckoningActivity", "Средний чек (из базы данных): $averageCheck")
 
-                // Вычисления
                 val E = if (averageCheck > 0) ((electricityCurr - electricityPrev) * regionCoefficient) / averageCheck else 0.0
                 val G = if (averageCheck > 0) ((gasCurr - gasPrev) * 36.7 * 0.029) / averageCheck else 0.0
                 val S = E + G
@@ -160,13 +182,21 @@ class ReckoningActivity : AppCompatActivity() {
                 Log.d("ReckoningActivity", "S: $S")
                 Log.d("ReckoningActivity", "M: $M")
 
-                // Проверяем, есть ли уже запись для данного года и месяца
+                val previousData = PreviousReckoningData(
+                    year = year,
+                    month = month,
+                    region = region,
+                    electricityPrev = electricityPrev,
+                    gasPrev = gasPrev,
+                    hotWaterPrev = hotWaterPrev,
+                    coldWaterPrev = coldWaterPrev
+                )
+
                 val existingData = withContext(Dispatchers.IO) {
                     reckoningDataDao.getReckoningDataByYearAndMonth(year, month)
                 }
 
                 if (existingData != null) {
-                    // Если запись существует, обновляем её
                     val updatedData = existingData.copy(
                         region = region,
                         electricityCurr = electricityCurr,
@@ -178,9 +208,9 @@ class ReckoningActivity : AppCompatActivity() {
                     )
                     withContext(Dispatchers.IO) {
                         reckoningDataDao.update(updatedData)
+                        previousReckoningDataDao.insert(previousData)
                     }
                 } else {
-                    // Если записи нет, создаем новую
                     val newData = ReckoningData(
                         year = year,
                         month = month,
@@ -194,31 +224,14 @@ class ReckoningActivity : AppCompatActivity() {
                     )
                     withContext(Dispatchers.IO) {
                         reckoningDataDao.insert(newData)
+                        previousReckoningDataDao.insert(previousData)
                     }
                 }
-                val previousMonthYear = getPreviousMonthYear(year, month)
 
-                // Сохраняем предыдущие показания для следующего месяца
-                val previousData = PreviousReckoningData(
-                    year = year,
-                    month = month,
-                    region = region,
-                    electricityPrev = electricityPrev,
-                    gasPrev = gasPrev,
-                    hotWaterPrev = hotWaterPrev,
-                    coldWaterPrev = coldWaterPrev
-                )
-
-                withContext(Dispatchers.IO) {
-                    previousReckoningDataDao.insert(previousData)
-                }
-
-                // Показываем результаты
                 showCalculationResults(E, G, S, M)
             } else {
-                // Если данные о чеках не найдены
                 Toast.makeText(this@ReckoningActivity, "Данные о чеках за этот период не найдены", Toast.LENGTH_SHORT).show()
-                averageCheck = 1.0 // или какое-то значение по умолчанию, чтобы избежать деления на ноль
+                averageCheck = 1.0
             }
         }
     }
@@ -226,12 +239,24 @@ class ReckoningActivity : AppCompatActivity() {
     private fun getPreviousMonthYear(year: Int, month: Int): Pair<Int, Int> {
         var previousMonth = month - 1
         var previousYear = year
-        if (previousMonth == 0) {
+        if (previousMonth < 1) {
             previousMonth = 12
             previousYear--
         }
         return Pair(previousYear, previousMonth)
     }
+
+    private fun getNextMonthYear(year: Int, month: Int): Pair<Int, Int> {
+        var nextMonth = month + 1
+        var nextYear = year
+        if (nextMonth > 12) {
+            nextMonth = 1
+            nextYear++
+        }
+        return Pair(nextYear, nextMonth)
+    }
+
+
     private fun getIndex(spinner: Spinner, myString: String): Int {
         for (i in 0 until spinner.count) {
             if (spinner.getItemAtPosition(i).toString().equals(myString, ignoreCase = true)) {
@@ -243,42 +268,36 @@ class ReckoningActivity : AppCompatActivity() {
     }
 
     private fun showCalculationResults(E: Double, G: Double, S: Double, M: Double) {
-        // Создаем AlertDialog
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("Результаты расчета")
 
-        // Создаем layout для AlertDialog
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_reckoning_result, null)
 
-        // Находим TextView в layout
         val eTextView = view.findViewById<TextView>(R.id.eTextView)
         val gTextView = view.findViewById<TextView>(R.id.gTextView)
         val sTextView = view.findViewById<TextView>(R.id.sTextView)
         val mTextView = view.findViewById<TextView>(R.id.mTextView)
+        val okButton = view.findViewById<Button>(R.id.okButton)
 
-        // Устанавливаем значения
-        eTextView.text = String.format("E (тонн CO2/месяц): %.2f", E)
-        gTextView.text = String.format("G (тонн CO2/месяц): %.2f", G)
-        sTextView.text = String.format("S: %.2f", S)
-        mTextView.text = String.format("M: %.2f", M)
-
-        // Устанавливаем layout для AlertDialog
-        builder.setView(view)
-
-        // Добавляем кнопку "OK"
-        builder.setPositiveButton("OK") { dialog, _ ->
-            dialog.dismiss()
-
-            // Меняем текст кнопки и переходим на следующую страницу
-            buttonCalculate.text = "Далее"
-            buttonCalculate.setOnClickListener {
-                val intent = Intent(this, Page3Activity::class.java)
-                intent.putExtra("year", year)
-                startActivity(intent)
-            }
+        buttonCalculate.text = "Далее"
+        buttonCalculate.setOnClickListener {
+            val intent = Intent(this, Page3Activity::class.java)
+            intent.putExtra("year", year)
+            startActivity(intent)
         }
 
-        // Отображаем AlertDialog
-        builder.show()
+        eTextView.text = "E (тонн CO2/месяц): %.2f".format(E)
+        gTextView.text = "G (тонн CO2/месяц): %.2f".format(G)
+        sTextView.text = "S: %.2f".format(S)
+        mTextView.text = "M: %.2f".format(M)
+
+        builder.setView(view)
+
+        val dialog = builder.create()
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        okButton.setOnClickListener {
+            dialog.dismiss()
+        }
     }
 }
